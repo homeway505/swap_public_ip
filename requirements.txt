@@ -1,0 +1,5 @@
+azure-identity
+azure-mgmt-network
+azure-mgmt-compute
+pytz
+pyyaml

@@ -1,0 +1,20 @@
+services:
+  swap-ip:
+    network_mode: bridge
+    dns:
+      - 8.8.8.8
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host  # This ensures that the build uses the host network
+    image: swap-ip
+    container_name: swap-ip
+    # user: "${UID}:${GID}"  # Ensure files are accessible by the container's user
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app
+      - /home/david/.azure:/home/david/.azure  # Map host's Azure CLI credentials to the container
+    restart: "no"  # Ensure the container does not restart once the program exits
+    command: tail -f /dev/null
+    user: "1000:1000"  # david's user/group IDs on the host
