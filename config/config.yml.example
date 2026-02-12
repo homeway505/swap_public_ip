@@ -1,0 +1,22 @@
+# Azure Configuration Template
+# Copy this file to config.yml and update with your values
+# DO NOT commit config.yml to version control
+
+azure:
+  subscription_id: "your-subscription-id"
+  resource_group: "your-resource-group"
+
+# Virtual Machine Configuration
+vms:
+  vm1_name: "your-vm1-name"
+  vm2_name: "your-vm2-name"
+
+# Public IP Configuration
+public_ips:
+  main_ip: "your-main-public-ip"
+  spare_ip: "your-spare-public-ip"
+
+# Time Configuration
+schedule:
+  day_start: "07:00"
+  day_end: "17:00"

@@ -8,7 +8,7 @@ A Python application that automatically manages Azure public IP assignments betw
 - [Prerequisites](#-prerequisites)
 - [Architecture](#️-architecture)
   - [Project Structure](#project-structure)
-  - [Time-based Logic](#time-based-logic)
+  - [Schedule Mapping](#schedule-mapping)
 - [Quick Start](#-quick-start)
 - [Configuration](#-configuration)
   - [Azure Resources](#azure-resources)
@@ -36,8 +36,8 @@ A Python application that automatically manages Azure public IP assignments betw
 
 ## 🚀 Features
 
-- **Time-based IP Assignment**: Automatically assigns public IPs based on business hours
-- **Dual IP Management**: Manages both main and spare IP addresses
+- **Schedule-based IP Assignment**: Applies IP assignments based on time windows
+- **Multi-IP Management**: Manages multiple public IP addresses
 - **Azure Integration**: Seamless integration with Azure networking services
 - **Docker Support**: Containerized deployment with Azure CLI authentication
 - **Logging & Monitoring**: Comprehensive logging for operational visibility
@@ -61,7 +61,7 @@ swap_public_ip/
 ├── common/
 │   ├── azure.py          # Azure API interactions
 │   ├── utilis.py        # Configuration constants
-│   └── check_time.py    # Time-based logic
+│   └── check_time.py    # Schedule window logic
 ├── pipeline/
 │   ├── main.py           # Main execution script
 │   └── run_log.txt       # Execution logs
@@ -70,13 +70,8 @@ swap_public_ip/
 └── requirements.txt    # Python dependencies
 ```
 
-### Time-based Logic
-- **Daytime (7:00 AM - 5:00 PM)**: 
-  - VM1 gets the main public IP
-  - VM2 gets the spare public IP
-- **Nighttime (5:00 PM - 7:00 AM)**:
-  - VM2 gets the main public IP
-  - VM1 is not assigned any public IP
+### Schedule Mapping
+The application applies IP assignments based on configured time windows in the schedule mapping.
 
 ## 🚀 Quick Start
 
@@ -94,14 +89,25 @@ az account set --subscription "your-subscription-id"
 ```
 
 ### 3. Update Configuration
-Edit `common/utilis.py` to match your Azure resources:
+Edit `config/config.yml` to match your Azure resources:
 ```python
-subscription_id = "your-subscription-id"
-resource_group = "your-resource-group"
-vm1_name = "your-vm1-name"
-vm2_name = "your-vm2-name"
-public_ip_name = "your-main-public-ip"
-day_time_spare_ip = "your-spare-public-ip"
+azure:
+  subscription_id: "your-subscription-id"
+  resource_group: "your-resource-group"
+vms:
+  adf:
+    name: "your-vm1-name"
+    resource_group: "your-vm1-resource-group"
+  linux:
+    name: "your-vm2-name"
+    resource_group: "your-vm2-resource-group"
+public_ips:
+  iaptus_ip:
+    name: "your-main-public-ip"
+    resource_group: "your-main-ip-resource-group"
+  ir_ip:
+    name: "your-spare-public-ip"
+    resource_group: "your-spare-ip-resource-group"
 ```
 
 ### 4. Run with Docker
@@ -146,16 +152,50 @@ The application expects the following Azure resources:
 
 | Resource Type | Purpose | Example Name |
 |---------------|---------|--------------|
-| Virtual Machine 1 | Primary VM (daytime) | `iaptus-IR` |
-| Virtual Machine 2 | Secondary VM (nighttime) | `vm-SelfHostedIR-2` |
-| Public IP 1 | Main public IP | `vm-SelfHostedIR-ip` |
-| Public IP 2 | Spare public IP | `vm-SelfHostedIR-2-ip` |
+| Virtual Machine 1 | Primary VM | `iaptus-IR` |
+| Virtual Machine 2 | Secondary VM | `vm-SelfHostedIR-2` |
+| Public IP 1 | Public IP | `vm-SelfHostedIR-ip` |
+| Public IP 2 | Public IP | `vm-SelfHostedIR-2-ip` |
 
-### Time Configuration
-```python
-# Business hours (daytime)
-day_start = time(7, 00)  # 7:00 AM
-day_end = time(17, 00)   # 5:00 PM
+### VM Naming Map
+Use this table to track what you want to call each VM and the current Azure VM resource name.
+
+| Desired Name (Your Label) | Current Azure VM Name |
+|---------------------------|-----------------------|
+| adf | `iaptus-IR` |
+| linux | `vm-SelfHostedIR-2` |
+| dotnine | `dotnine-ir` |
+
+### VM to IP Window Mapping
+Use this table to define which VM should have which public IP during each time window.
+Note: Overlapping windows are allowed as long as the same IP is not assigned to two VMs at the same time.
+
+| Window Start (HH:MM) | Window End (HH:MM) | Desired VM Name | Desired IP Name |
+|----------------------|--------------------|-----------------|-----------------|
+| 7:45AM | 8:30AM | linux | iaptus_ip |
+| 8:30AM | 9:00AM | linux | dotnine_ip |
+| 9:00AM | 5:00PM | adf | iaptus_ip |
+| 9:00AM | 5:00PM | dotnine | dotnine_ip |
+| 5:00PM | 11:59PM | linux | iaptus_ip |
+
+### Public IP Naming Map
+Use this table to track what you want to call each IP, the current Azure public IP resource name, and the actual IP value.
+
+| Desired Name (Your Label) | Current Azure Public IP Name | IP Address Value |
+|---------------------------|------------------------------|------------------|
+| iaptus_ip | `iaptus-IR-ip` | 20.0.176.209 |
+| ir_ip | `vm-SelfHostedIR-2-ip` | 4.234.195.100 |
+| dotnine_ip | `vm-SelfHostedIR-2-ip` | 51.142.248.60 |
+
+### Schedule Configuration
+Define time windows that map a VM to a public IP label. Multiple windows can overlap as long as they use different IPs.
+```yaml
+schedule_timezone: "Europe/London"
+schedule:
+  - start: "06:00"
+    end: "08:00"
+    vm: "linux"
+    ip: "iaptus_ip"
 ```
 
 ## 🐳 Docker Deployment
@@ -187,7 +227,6 @@ services:
 - `get_current_ip_association()` - Check current IP assignments
 - `disassociate_public_ip()` - Remove IP from NIC
 - `associate_public_ip()` - Assign IP to NIC
-- `assign_spare_ip()` - Assign spare IP during daytime
 
 ### Network Interface Management
 - `cleanup_secondary_ip_configs()` - Remove secondary IP configurations
@@ -195,19 +234,17 @@ services:
 - `normalize_nic_id()` - Standardize NIC ID format
 
 ### Main Logic
-- `swap_public_ip()` - Core IP swapping logic
-- `is_daytime()` - Time-based decision making
-- `get_resource_ids()` - Fetch Azure resource IDs
+- `apply_window_mapping()` - Apply active VM-to-IP window mappings
+- `get_active_windows()` - Determine which schedule windows are active now
 
 ## 🔄 Workflow
 
-1. **Time Check**: Determine if it's daytime or nighttime
-2. **Current State**: Check which VM currently has the main public IP
-3. **Decision Logic**: Determine the correct VM for the current time
+1. **Time Check**: Determine the active schedule windows
+2. **Current State**: Check which NICs currently have each public IP
+3. **Decision Logic**: Match each active window to its target VM and IP
 4. **IP Assignment**: 
    - Disassociate IP from current VM (if needed)
-   - Associate IP with correct VM
-   - Assign spare IP during daytime
+   - Associate IP with the correct VM
 5. **Logging**: Record all operations for monitoring
 
 ## 📝 Logging
@@ -216,7 +253,7 @@ The application provides comprehensive logging:
 - **Execution logs**: `pipeline/run_log.txt`
 - **Azure operations**: IP assignments and disassociations
 - **Error handling**: Detailed error messages and stack traces
-- **Time-based decisions**: Logs showing daytime/nighttime logic
+- **Schedule-based decisions**: Logs showing window evaluation logic
 
 ## 🧪 Testing
 
@@ -229,23 +266,20 @@ The `notebook/` directory contains testing notebooks:
 
 ### Manual Testing
 ```bash
-# Test time logic
-docker exec swap-ip python -c "from common.check_time import is_daytime; print(f'Is daytime: {is_daytime()}')"
-
-# Test Azure connectivity
-docker exec swap-ip python -c "from common.azure import get_resource_ids; print(get_resource_ids())"
+# Test active schedule windows
+docker exec swap-ip python -c "from common.check_time import get_active_windows; print(get_active_windows())"
 ```
 
 ## 🔗 Integration with Azure VM Scheduler
 
 This project works in coordination with `azure_vm_scheduler`:
 
-- **VM Scheduler**: Handles VM start/stop based on business hours
+- **VM Scheduler**: Handles VM start/stop based on schedule
 - **IP Swapper**: Manages IP assignments between running VMs
 - **Separation of Concerns**: Each project has a single responsibility
 
 ### Coordination Flow
-1. **Scheduler** starts/stops VMs based on time
+1. **Scheduler** starts/stops VMs based on time windows
 2. **IP Swapper** assigns appropriate IPs to running VMs
 3. **Clean Architecture**: No overlap in functionality
 
@@ -368,6 +402,13 @@ For issues and questions:
 4. Create an issue in the repository
 
 ## 📝 Changelog
+
+### [2026-02-03] - Window-Based IP Mapping
+
+#### Changed
+- Replaced day/night IP swapping with schedule-driven VM-to-IP window mapping
+- Added timezone configuration for schedule evaluation (default: Europe/London)
+- Added validation to detect conflicting IP assignments in active windows
 
 ### [2024-09-27] - VM Control Functionality Removed
 

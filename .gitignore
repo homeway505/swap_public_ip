@@ -130,11 +130,3 @@ dmypy.json
 
 # Project specific
 pipeline/run_log.txt
-
-# Secrets and sensitive configuration
-secrets/
-*.yml
-*.yaml
-!requirements.txt
-!docker-compose.yaml
-!Dockerfile

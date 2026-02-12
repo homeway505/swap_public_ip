@@ -1,0 +1,54 @@
+# Azure Configuration
+# This file contains the IP swapping schedule and Azure resource mappings
+
+azure:
+  subscription_id: "9379362b-174d-41cf-8237-6974b7bca418"
+  resource_group: "rg-central-ingestion-dev"
+
+# Virtual Machine Configuration (label -> name + resource_group)
+vms:
+  adf:
+    name: "iaptus-IR"
+    resource_group: "rg-central-ingestion-dev"
+  linux:
+    name: "vm-SelfHostedIR-2"
+    resource_group: "rg-central-ingestion-dev"
+  dotnine:
+    name: "dotnine-ir"
+    resource_group: "rg-ingestion-dev"
+
+# Public IP Configuration (label -> name + resource_group)
+public_ips:
+  iaptus_ip:
+    name: "vm-SelfHostedIR-ip" # 20.0.176.209
+    resource_group: "rg-central-ingestion-dev"
+  ir_ip:
+    name: "vm-SelfHostedIR-2-ip" # 4.234.195.100
+    resource_group: "rg-central-ingestion-dev"
+  dotnine_ip:
+    name: "iaptus-IR-ip" # 51.142.248.60
+    resource_group: "rg-central-ingestion-dev"
+
+# Window Mapping Configuration
+schedule_timezone: "Europe/London"
+schedule:
+  - start: "07:45"
+    end: "08:30"
+    vm: "linux"
+    ip: "iaptus_ip"
+  - start: "08:30"
+    end: "09:00"
+    vm: "linux"
+    ip: "dotnine_ip"
+  - start: "09:00"
+    end: "17:00"
+    vm: "adf"
+    ip: "iaptus_ip"
+  - start: "09:00"
+    end: "17:00"
+    vm: "dotnine"
+    ip: "dotnine_ip"
+  - start: "17:00"
+    end: "23:59"
+    vm: "linux"
+    ip: "iaptus_ip"

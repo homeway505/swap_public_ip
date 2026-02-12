@@ -1,17 +1,27 @@
 # Configuration loader for Azure resources
-import os
 import yaml
 from datetime import time
 from pathlib import Path
 
+
+def parse_time_str(value):
+    """
+    Parse a time string in HH:MM format into a datetime.time object.
+    """
+    parts = value.strip().split(":")
+    if len(parts) != 2:
+        raise ValueError(f"Invalid time format: {value}")
+    return time(int(parts[0]), int(parts[1]))
+
+
 def load_config():
     """
-    Load configuration from secrets/config.yml file.
+    Load configuration from config/config.yml file.
     Returns a dictionary with all configuration values.
     """
     # Get the project root directory
     project_root = Path(__file__).parent.parent
-    config_path = project_root / "secrets" / "config.yml"
+    config_path = project_root / "config" / "config.yml"
     
     if not config_path.exists():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
@@ -29,21 +39,15 @@ try:
     subscription_id = config['azure']['subscription_id']
     resource_group = config['azure']['resource_group']
     
-    # VM configuration
-    vm1_name = config['vms']['vm1_name']
-    vm2_name = config['vms']['vm2_name']
+    # VM configuration (label -> Azure VM name)
+    vms = config['vms']
     
-    # Public IP configuration
-    public_ip_name = config['public_ips']['main_ip']
-    day_time_spare_ip = config['public_ips']['spare_ip']
-    
-    # Time configuration
-    day_start_str = config['schedule']['day_start']
-    day_end_str = config['schedule']['day_end']
-    
-    # Parse time strings to time objects
-    day_start = time(int(day_start_str.split(':')[0]), int(day_start_str.split(':')[1]))
-    day_end = time(int(day_end_str.split(':')[0]), int(day_end_str.split(':')[1]))
-    
+    # Public IP configuration (label -> Azure public IP name)
+    public_ips = config['public_ips']
+
+    # Schedule configuration
+    schedule = config.get('schedule', [])
+    schedule_timezone = config.get('schedule_timezone', 'Europe/London')
+
 except Exception as e:
     raise RuntimeError(f"Failed to load configuration: {e}")
